@@ -8,32 +8,26 @@ import spacy
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Ladataan spaCy-malli
 nlp = spacy.load("fi_core_news_sm")
 
-# Ladataan kielimalli ja tokenizer
 tokenizer = GPT2Tokenizer.from_pretrained("Finnish-NLP/gpt2-finnish")
 model = GPT2LMHeadModel.from_pretrained("Finnish-NLP/gpt2-finnish")
 
-# Varmistetaan pad_token
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-# Parametrit
 iteraatio_maara = 10
 tulostiedosto = Path("novellit.txt")
 mittaritiedosto = Path("mittarit.csv")
 
-# ✅ Normalisoi novellitiedosto ennen muuta toimintaa
 if tulostiedosto.exists():
     with open(tulostiedosto, "r", encoding="utf-8") as f:
         raw_text = f.read()
-    # Poistetaan erikoismerkit ja numerot, säilytetään kirjaimet ja perusvälilyönnit
+        
     normalized_text = re.sub(r"[^a-zA-ZåäöÅÄÖ\s.,!?]", "", raw_text)
     with open(tulostiedosto, "w", encoding="utf-8") as f:
         f.write(normalized_text)
 
-# ✅ Novellin generointi ja promptin poisto analyysiä varten
 def generoi_novelli(pituus_tokenina=800):
     try:
         with open(tulostiedosto, "r", encoding="utf-8") as f:
@@ -42,13 +36,13 @@ def generoi_novelli(pituus_tokenina=800):
     except FileNotFoundError:
         prompti = ""
 
-    prompti += "\n\nKirjoita uusi itsenäinen novelli tämän tyyliin sopivalla tavalla:"
+    prompti += "\n\nTähän haluamasi kehote."
 
     input_ids = tokenizer.encode(
         prompti,
         return_tensors="pt",
         truncation=True,
-        max_length=512
+        max_length=512 #Tämän voi pidentää 1024-pituiseksi halutessaan. 
     )
 
     output = model.generate(
@@ -66,8 +60,6 @@ def generoi_novelli(pituus_tokenina=800):
     novelli_ilman_promptia = generated.replace(prompti, "").strip() if prompti in generated else generated
     return generated, novelli_ilman_promptia
 
-# ✅ Tekstin analyysi spaCyllä + TTR
-
 def analysoi_teksti(teksti):
     doc = nlp(teksti)
     lauseet = list(doc.sents)
@@ -82,14 +74,12 @@ def analysoi_teksti(teksti):
     ttr = uniikit_sanat / kokonaissanat if kokonaissanat > 0 else 0
     return uniikit_sanat, lauseiden_maara, keskipituus, ttr
 
-# ✅ Tiedostojen alustus
 if not tulostiedosto.exists():
     tulostiedosto.write_text("", encoding="utf-8")
 
 if not mittaritiedosto.exists():
     mittaritiedosto.write_text("Iteraatio,UniikitSanat,Lauseita,KeskimPituus,TTR\n", encoding="utf-8")
 
-# ✅ Iteraatiosilmukka
 for i in range(1, iteraatio_maara + 1):
     print(f"\n\U0001f300 Iteraatio {i}/{iteraatio_maara}")
 
@@ -115,7 +105,6 @@ for i in range(1, iteraatio_maara + 1):
 
 print("✅ Kaikki novellit generoitu ja tallennettu.")
 
-# ✅ Mittarien visualisointi
 try:
     df = pd.read_csv(mittaritiedosto)
     df.plot(x="Iteraatio", y=["UniikitSanat", "Lauseita", "KeskimPituus", "TTR"], subplots=True, marker="o", figsize=(10, 8))
